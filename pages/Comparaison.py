@@ -1,4 +1,4 @@
-from WhalesOptimizer import WhalesOptimizer
+from data.WhalesOptimizer import WhalesOptimizer
 import streamlit as st
 import json
 import time
