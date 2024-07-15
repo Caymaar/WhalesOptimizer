@@ -13,7 +13,6 @@ import matplotlib.pyplot as plt
 import plotly.graph_objects as go
 import plotly.figure_factory as ff
 import streamlit as st
-from plotly.subplots import make_subplots
 
 
 
@@ -24,14 +23,15 @@ class WhalesOptimizer:
     ##########################################################
 
     def __init__(self, json_config):
-        data = np.load('data/simulated_XL_values1.npz')
+        data = np.load('simulated_XL_values1.npz')
         self.interpolator_sym_1 = RegularGridInterpolator((np.linspace(0, 1, 100), np.linspace(0, 1, 100)), data['sym_1'])
         self.interpolator_sym_3 = RegularGridInterpolator((np.linspace(0, 1, 100), np.linspace(0, 1, 100)), data['sym_3'])
         self.interpolator_asym_1 = RegularGridInterpolator((np.linspace(0, 1, 100), np.linspace(0, 1, 100)), data['asym_1'])
         self.interpolator_asym_3 = RegularGridInterpolator((np.linspace(0, 1, 100), np.linspace(0, 1, 100)), data['asym_3'])
 
-        # Set to false "optimzing"
+        # Set to false "optimzing" and "generating_graph" status
         self.optimizing = False
+        self.generating_graph = False
 
         # Charger le JSON et initialiser les paramètres
         config = json.loads(json_config)
@@ -470,7 +470,9 @@ class WhalesOptimizer:
         # Remettre les valeurs originales de x et y
         self.x = x_original
         self.y = y_original
-        self.optimizing = False
+
+        if not self.generating_graph:
+            self.optimizing = False
         
         return self.optimal_x, self.optimal_y, self.optimal_sharpe_ratio
 
@@ -556,22 +558,14 @@ class WhalesOptimizer:
         
         return results
     
-    def sharpe_ratio(self):
+    def sharpe(self, func_name):
 
         """
         Calcule le ratio de Sharpe pour une distribution spécifiée
         """
 
-        E, Var = self.portfolio()
-        return E / np.sqrt(Var)
-    
-    def information_ratio(self):
-
-        """
-        Calcule le ratio d'Information pour une distribution spécifiée
-        """
-        
-        E, Var = self.delta()
+        func = getattr(self, func_name)
+        E, Var = func()
         return E / np.sqrt(Var)
 
     def show_parameters(self):
@@ -616,15 +610,15 @@ class WhalesOptimizer:
 
         fig_ptf.add_trace(go.Histogram(x=hist_data_ptf, nbinsx=50, name='Densité simulée', histnorm='probability density', marker_color='green'))
         fig_ptf.add_trace(go.Scatter(x=kde_x_ptf, y=kde_y_ptf, mode='lines', name='Densité théorique', line=dict(color='red')))
-        fig_ptf.add_vline(x=0, line=dict(color='blue', dash='dash'))
+        fig_ptf.add_vline(x=0, line=dict(color='green', dash='dash'))
 
         fig_ptf.update_layout(
-            title='Portefeuille',
-            title_x=0.3,
+            title=f'Probabilité de sur-performance (Portefeuille): théorique : {proba_theorique_ptf:.2f}%, simulée : {proba_simulee_ptf:.2f}%',
             xaxis_title='Rendement Portefeuille',
             yaxis_title='Densité',
             showlegend=True
         )
+
         # Plotly plots for 'Delta'
         fig_delta = go.Figure()
 
@@ -635,11 +629,10 @@ class WhalesOptimizer:
         fig_delta.add_trace(go.Histogram(x=hist_data_delta, nbinsx=50, name='Densité simulée', histnorm='probability density', marker_color='blue'))
         fig_delta.add_trace(go.Scatter(x=kde_x_delta, y=kde_y_delta, mode='lines', name='Densité théorique', line=dict(color='red')))
         fig_delta.add_vline(x=0, line=dict(color='green', dash='dash'))
-        
+
         fig_delta.update_layout(
-            title='Delta',
-            title_x=0.4,
-            xaxis_title='Rendement Delta',
+            title=f'Probabilité de sur-performance (Delta): théorique : {proba_theorique_delta:.2f}%, simulée : {proba_simulee_delta:.2f}%',
+            xaxis_title='Delta',
             yaxis_title='Densité',
             showlegend=True
         )
@@ -649,141 +642,70 @@ class WhalesOptimizer:
             col1, col2 = st.columns(2)
             with col1:
                 st.plotly_chart(fig_ptf, use_container_width=True)
-                st.markdown(f'$$\mu$$ : **{mu_ptf:.3f}**, $$\sigma$$ : **{sigma_ptf:.3f}**')
-                st.markdown('**Probabilité de performance (Portefeuille):**')
-                st.markdown(f'théorique : **{proba_theorique_ptf:.2f}%**, simulée : **{proba_simulee_ptf:.2f}%**')
-                st.markdown(f'Ratio de Sharpe : **{self.sharpe_ratio():.3f}**')
-
             with col2:
                 st.plotly_chart(fig_delta, use_container_width=True)
-                st.markdown(f'$$\mu$$ : **{mu_delta:.3f}**, $$\sigma$$ : **{sigma_delta:.3f}**')
-                st.markdown('**Probabilité de sur-performance (Delta):**')
-                st.markdown(f'théorique : **{proba_theorique_delta:.2f}%**, simulée : **{proba_simulee_delta:.2f}%**')
-                st.markdown(f"Ratio d'Information : **{self.information_ratio():.3f}**")
+                #Ecrit sous le tableau les probabilités de sur-performance
+                st.write(f'Probabilité de sur-performance (Portefeuille): théorique : {proba_theorique_ptf:.2f}%, simulée : {proba_simulee_ptf:.2f}%')
         else:
             fig_ptf.show()
-            print('Probabilité de performance (Portefeuille):')
-            print(f'théorique : {proba_theorique_ptf:.2f}%, simulée : {proba_simulee_ptf:.2f}%')
-            print(f'mu = {mu_ptf:.3f}, sqrt = {sigma_ptf:.3f}')
-            print(f'Ratio de Sharpe : {self.sharpe_ratio():.3f}')
             fig_delta.show()
-            print('Probabilité de sur-performance (Delta):')
-            print(f'théorique : {proba_theorique_delta:.2f}%, simulée : {proba_simulee_delta:.2f}%')
-            print(f'mu = {mu_delta:.3f}, sqrt = {sigma_delta:.3f}')
-            print(f'Ratio de Sharpe : {self.information_ratio():.3f}')
 
-    def plot_whale_values(self, streamlit=False):
-        labels = [f'Whale {i+1}' for i in range(len(self.w_whale))]
+    def generate_3d_graph(self, sharpness, v_function):
+        # Vérifier que w_whale a les mêmes valeurs dans sa liste
+        if any(len(set(attr)) != 1 for attr in [self.w_whale, self.phwh, self.rhwh, self.rbwh]):
+            return "Les valeurs de w_whale doivent être identiques"
 
-        # Calculer les nouvelles valeurs de x et y
-        x_values = self.w_whale + self.x
-        y_values = self.w_whale - self.y
+        original_x = self.x
+        original_y = self.y
 
-        # Créer deux colonnes
-        col1, col2 = st.columns(2)
+        # Créer des listes pour x et y
+        x_range = np.linspace(-1, 1, sharpness)
+        y_range = np.linspace(-1, 1, sharpness)
+        
+        # Créer une grille de valeurs x et y
+        x_values, y_values = np.meshgrid(x_range, y_range)
+        
+        Esperance = np.zeros((sharpness, sharpness))
+        Variance = np.zeros((sharpness, sharpness))
 
-        # Placer chaque checkbox dans sa propre colonne
-        with col1:
-            show_probabilities = st.checkbox('Afficher les probabilités de hausse', value=True)
-        with col2:
-            show_returns = st.checkbox('Afficher les rendements haussiers et baissiers', value=True)
-            
-        # Créer le subplot avec les hauteurs relatives définies
-        row_heights = [0.5]
-        if show_probabilities:
-            row_heights.append(0.25)
-        if show_returns:
-            row_heights.append(0.25)
+        for i in range(sharpness):
+            for j in range(sharpness):
+                self.x = self.w_whale * x_values[i, j]
+                self.y = self.w_whale * y_values[i, j]
 
-        fig = make_subplots(rows=len(row_heights), cols=1, subplot_titles=(
-            'Valeurs des Whales, x et y',
-            'Probabilités de hausse' if show_probabilities else '',
-            'Rendements haussiers et baissiers des Whales' if show_returns else ''),
-            vertical_spacing=0.1,
-            row_heights=row_heights)
+                Esperance[i, j], Variance[i, j] = v_function()
 
-        # Ajouter les traits pour w_whale (subplot 1)
-        fig.add_trace(go.Scatter(
-            x=labels,
-            y=self.w_whale,
-            mode='markers',
-            name='w_whale',
-            marker=dict(symbol='square', color='blue', size=8)
-        ), row=1, col=1)
+        self.x = original_x
+        self.y = original_y
 
-        # Ajouter les flèches pour x (subplot 1)
-        fig.add_trace(go.Scatter(
-            x=labels,
-            y=x_values,
-            mode='markers',
-            name='x (w_whale + x)',
-            marker=dict(symbol='triangle-up', color='green', size=10)
-        ), row=1, col=1)
+        # Calculer le ratio de Sharpe pour chaque paire (x, y)
+        sharpe_values = Esperance / np.sqrt(Variance)
 
-        # Ajouter les flèches pour y (subplot 1)
-        fig.add_trace(go.Scatter(
-            x=labels,
-            y=y_values,
-            mode='markers',
-            name='y (w_whale - y)',
-            marker=dict(symbol='triangle-down', color='red', size=10)
-        ), row=1, col=1)
+        # Créer un graphique 3D avec Plotly
+        fig = go.Figure(data=[go.Surface(z=sharpe_values, x=x_values, y=y_values, colorscale='Viridis')])
 
-        current_row = 2
+        # Ajouter des titres aux axes
+        fig.update_layout(
+            title=f"Sharpe Ratio 3D Surface",
+            scene = dict(
+                xaxis_title='X',
+                yaxis_title='Y',
+                zaxis_title='Sharpe Ratio',
+            )
+        )
 
-        # Ajouter les probabilités de hausse (subplot 2) si activé
-        if show_probabilities:
-            fig.add_trace(go.Bar(
-                x=labels,
-                y=self.phwh,
-                name='Probabilités de hausse',
-                width=0.3,
-                marker=dict(color='purple', opacity=0.6)
-            ), row=current_row, col=1)
-            current_row += 1
+        # Trouver l'index du ratio de Sharpe maximum
+        max_index = np.argmax(sharpe_values)
 
-        # Ajouter les rendements haussiers et baissiers (subplot 3) si activé
-        if show_returns:
-            fig.add_trace(go.Bar(
-                x=labels,
-                y=self.rhwh,
-                name='Rendements haussiers',
-                width=0.3,
-                marker=dict(color='green', opacity=0.6),
-                offsetgroup=0
-            ), row=current_row, col=1)
+        # Convertir l'index en indices 2D
+        max_indices = np.unravel_index(max_index, sharpe_values.shape)
 
-            fig.add_trace(go.Bar(
-                x=labels,
-                y=self.rbwh,
-                name='Rendements baissiers',
-                width=0.3,
-                marker=dict(color='red', opacity=0.6),
-                offsetgroup=0
-            ), row=current_row, col=1)
+        # Trouver les valeurs x et y correspondantes
+        best_x = x_values[max_indices]
+        best_y = y_values[max_indices]
+        max_z = np.max(sharpe_values)
 
-        # Mettre à jour la mise en page
-        if show_returns and show_probabilities:
-            fig.update_layout(height=800,showlegend=False)
-        if (show_returns and not show_probabilities) or (not show_returns and show_probabilities):
-            fig.update_layout(height=600,showlegend=False)
-        if not show_returns and not show_probabilities:
-            fig.update_layout(height=400,showlegend=False)
+        # Ajouter un point pour le maximum Sharpe Ratio
+        fig.add_trace(go.Scatter3d(x=[best_x], y=[best_y], z=[max_z], mode='markers', marker=dict(size=5, color='red')))
 
-        # Afficher dans Streamlit ou dans un navigateur
-        if streamlit:
-            st.plotly_chart(fig, use_container_width=True)
-        else:
-            fig.show()
-
-    def get_whale_parameters_df(self):
-        data = {
-            'w_whale': self.w_whale,
-            'x': self.x,
-            'y': self.y,
-            'phwh': self.phwh,
-            'rhwh': self.rhwh,
-            'rbwh': self.rbwh
-        }
-        df = pd.DataFrame(data, index=[f'Whale {i+1}' for i in range(self.n_whale)]).T
-        return df
+        return fig
