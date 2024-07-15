@@ -24,7 +24,7 @@ class WhalesOptimizer:
     ##########################################################
 
     def __init__(self, json_config):
-        data = np.load('C:\\Users\\h6010\\Desktop\\WhalesOptimizer-main\\data\\simulated_XL_values1.npz')
+        data = np.load('data/simulated_XL_values1.npz')
         self.interpolator_sym_1 = RegularGridInterpolator((np.linspace(0, 1, 100), np.linspace(0, 1, 100)), data['sym_1'])
         self.interpolator_sym_3 = RegularGridInterpolator((np.linspace(0, 1, 100), np.linspace(0, 1, 100)), data['sym_3'])
         self.interpolator_asym_1 = RegularGridInterpolator((np.linspace(0, 1, 100), np.linspace(0, 1, 100)), data['asym_1'])
