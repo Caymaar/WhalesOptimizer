@@ -140,9 +140,9 @@ WO = WhalesOptimizer(json_config)
 
 # Simulation du portefeuille
 st.header("Simulation des différentes distributions")
-precision = st.slider("Select Precision", min_value=1000, max_value=10000, step=1000, value=5000)
+precision = st.slider("Select Precision", min_value=1000, max_value=50000, step=1000, value=10000)
 df = WO.simulate_portfolio(precision)
-st.dataframe(df)
+st.dataframe(df, use_container_width=True)
 
 
 # Comparaison des distributions
