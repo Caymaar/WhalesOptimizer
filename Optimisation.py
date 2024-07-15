@@ -102,12 +102,12 @@ N_ptf = st.sidebar.number_input("$$N_{portefeuille}$$ : Nombre de valeurs dans l
 st.sidebar.header("Paramètres des Whales :")
 
 w_whale = json.loads(st.sidebar.text_input("$$w_{whale}$$ : Poid(s) des whales", value=str(default_config['w_whale'])))
-phwh = json.loads(st.sidebar.text_input("$$P_{haussier}^{lambda}$$ : Probabilité de rendements haussiers (Lambda)", value=str(default_config['phwh'])))
-rhwh = json.loads(st.sidebar.text_input("$$R_{haussier}^{whale}$$ : Rendements haussiers (whale)", value=str(default_config['rhwh'])))
-rbwh = json.loads(st.sidebar.text_input("$$R_{baissier}^{whale}$$ : Rendements baissiers (whale)", value=str(default_config['rbwh'])))
+phwh = json.loads(st.sidebar.text_input("$$P_{haussier}^{lambda}$$ : Probabilité de rendements haussiers (Whale)", value=str(default_config['phwh'])))
+rhwh = json.loads(st.sidebar.text_input("$$R_{haussier}^{whale}$$ : Rendements haussiers (Whale)", value=str(default_config['rhwh'])))
+rbwh = json.loads(st.sidebar.text_input("$$R_{baissier}^{whale}$$ : Rendements baissiers (Whale)", value=str(default_config['rbwh'])))
 x = json.loads(st.sidebar.text_input("$$x$$ : Paramètre de surpondération", value=str(default_config['x'])))
 y = json.loads(st.sidebar.text_input("$$y$$ : Paramètre de sous pondération", value=str(default_config['y'])))
-st.sidebar.subheader(f"Il y a actuellement {len(w_whale)} whale(s)")
+st.sidebar.subheader(f"Il y a actuellement {len(w_whale)} whale(s), qui représente {sum(w_whale)*100}% de l'indice")
 
 st.sidebar.header("Paramètres des Lambdas :")
 

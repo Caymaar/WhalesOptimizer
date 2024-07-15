@@ -24,7 +24,7 @@ class WhalesOptimizer:
     ##########################################################
 
     def __init__(self, json_config):
-        data = np.load('data/simulated_XL_values1.npz')
+        data = np.load('C:\\Users\\h6010\\Desktop\\WhalesOptimizer-main\\data\\simulated_XL_values1.npz')
         self.interpolator_sym_1 = RegularGridInterpolator((np.linspace(0, 1, 100), np.linspace(0, 1, 100)), data['sym_1'])
         self.interpolator_sym_3 = RegularGridInterpolator((np.linspace(0, 1, 100), np.linspace(0, 1, 100)), data['sym_3'])
         self.interpolator_asym_1 = RegularGridInterpolator((np.linspace(0, 1, 100), np.linspace(0, 1, 100)), data['asym_1'])
@@ -788,7 +788,7 @@ class WhalesOptimizer:
         df = pd.DataFrame(data, index=[f'Whale {i+1}' for i in range(self.n_whale)]).T
         return df
 
-    def generate_3d_graph(self, sharpness, v_function):
+    def generate_3d_graph_portfolio(self, sharpness):
         # Vérifier que w_whale a les mêmes valeurs dans sa liste
         if any(len(set(attr)) != 1 for attr in [self.w_whale, self.phwh, self.rhwh, self.rbwh]):
             return "Les valeurs de w_whale doivent être identiques"
@@ -811,7 +811,67 @@ class WhalesOptimizer:
                 self.x = self.w_whale * x_values[i, j]
                 self.y = self.w_whale * y_values[i, j]
 
-                Esperance[i, j], Variance[i, j] = v_function()
+                Esperance[i, j], Variance[i, j] = self.portfolio()
+
+        self.x = original_x
+        self.y = original_y
+
+        # Calculer le ratio de Sharpe pour chaque paire (x, y)
+        sharpe_values = Esperance / np.sqrt(Variance)
+
+        # Créer un graphique 3D avec Plotly
+        fig = go.Figure(data=[go.Surface(z=sharpe_values, x=x_values, y=y_values, colorscale='Viridis')])
+
+        # Ajouter des titres aux axes
+        fig.update_layout(
+            title=f"Sharpe Ratio 3D Surface",
+            scene = dict(
+                xaxis_title='X',
+                yaxis_title='Y',
+                zaxis_title='Sharpe Ratio',
+            )
+        )
+
+        # Trouver l'index du ratio de Sharpe maximum
+        max_index = np.argmax(sharpe_values)
+
+        # Convertir l'index en indices 2D
+        max_indices = np.unravel_index(max_index, sharpe_values.shape)
+
+        # Trouver les valeurs x et y correspondantes
+        best_x = x_values[max_indices]
+        best_y = y_values[max_indices]
+        max_z = np.max(sharpe_values)
+
+        # Ajouter un point pour le maximum Sharpe Ratio
+        fig.add_trace(go.Scatter3d(x=[best_x], y=[best_y], z=[max_z], mode='markers', marker=dict(size=5, color='red')))
+
+        return fig
+    
+    def generate_3d_graph_delta(self, sharpness):
+        # Vérifier que w_whale a les mêmes valeurs dans sa liste
+        if any(len(set(attr)) != 1 for attr in [self.w_whale, self.phwh, self.rhwh, self.rbwh]):
+            return "Les valeurs de w_whale doivent être identiques"
+
+        original_x = self.x
+        original_y = self.y
+
+        # Créer des listes pour x et y
+        x_range = np.linspace(-1, 1, sharpness)
+        y_range = np.linspace(-1, 1, sharpness)
+        
+        # Créer une grille de valeurs x et y
+        x_values, y_values = np.meshgrid(x_range, y_range)
+        
+        Esperance = np.zeros((sharpness, sharpness))
+        Variance = np.zeros((sharpness, sharpness))
+
+        for i in range(sharpness):
+            for j in range(sharpness):
+                self.x = self.w_whale * x_values[i, j]
+                self.y = self.w_whale * y_values[i, j]
+
+                Esperance[i, j], Variance[i, j] = self.delta()
 
         self.x = original_x
         self.y = original_y

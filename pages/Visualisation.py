@@ -7,7 +7,7 @@ import numpy as np
 
 st.set_page_config(layout="wide")
 
-st.markdown("# Comparer Théorie et Simulation")
+st.markdown("# Visualisation des Nappes")
 
 ###########################################
 #         CONFIGURATION SIDEBAR
@@ -20,8 +20,6 @@ indice1_config = {
     "phwh": 0.5,
     "rhwh": 1,
     "rbwh": -1,
-    'x': [],
-    'y': [],
     "phld": 0.5,
     "rhld": 1,
     "rbld": -1,
@@ -35,8 +33,6 @@ indice2_config = {
     "phwh": [0.5, 0.5, 0.5, 0.5, 0.5],
     "rhwh": [1, 1, 1, 1, 1],
     "rbwh": [-1, -1, -1, -1, -1],
-    'x': [0, 0, 0, 0, 0],
-    'y': [0, 0, 0, 0, 0],
     "phld": 0.5,
     "rhld": 1,
     "rbld": -1,
@@ -50,23 +46,6 @@ indice3_config = {
     "phwh": 0.5,
     "rhwh": 1,
     "rbwh": -1,
-    'x': [0],
-    'y': [0],
-    "phld": 0.5,
-    "rhld": 1,
-    "rbld": -1,
-    "N_indice": 100,
-    "N_ptf": 30
-}
-
-custom_config = {
-    "w_whale": [0.1, 0.05, 0.13, 0.11, 0.02, 0.04, 0.08],
-    "ppc": 0.6,
-    "phwh": [0.6, 0.5, 0.4, 0.55, 0.44, 0.51, 0.4],
-    "rhwh": [1.2, 0.8, 1.1, 1.3, 0.5, 0.9, 0.5],
-    "rbwh": [-0.8, -1, -0.8, -1.1, -1.1, -0.9, -0.5],
-    'x': [0.02, 0.05, 0.04, 0.03, 0.02, 0.04, 0.01],
-    'y': [0.02, 0.05, 0.04, 0.03, 0.02, 0.04, 0.01],
     "phld": 0.5,
     "rhld": 1,
     "rbld": -1,
@@ -77,14 +56,13 @@ custom_config = {
 
 parameter_for = st.sidebar.selectbox(
     "Paramètres pour",
-    ['Custom', 'Indice 1', 'Indice 2', 'Indice 3']
+    ['Indice 1', 'Indice 2', 'Indice 3']
 )
 
 mapping = {
     'Indice 1' : indice1_config,
     'Indice 2' : indice2_config,
-    'Indice 3' : indice3_config,
-    'Custom' : custom_config
+    'Indice 3' : indice3_config
 }
 
 default_config = mapping[parameter_for]
@@ -99,19 +77,23 @@ N_ptf = st.sidebar.number_input("$$N_{portefeuille}$$ : Nombre de valeurs dans l
 
 st.sidebar.header("Paramètres des Whales :")
 
-w_whale = json.loads(st.sidebar.text_input("$$w_{whale}$$ : Poid(s) des whales", value=str(default_config['w_whale'])))
-phwh = json.loads(st.sidebar.text_input("$$P_{haussier}^{lambda}$$ : Probabilité de rendements haussiers (Whale)", value=str(default_config['phwh'])))
-rhwh = json.loads(st.sidebar.text_input("$$R_{haussier}^{whale}$$ : Rendements haussiers (Whale)", value=str(default_config['rhwh'])))
-rbwh = json.loads(st.sidebar.text_input("$$R_{baissier}^{whale}$$ : Rendements baissiers (Whale)", value=str(default_config['rbwh'])))
-x = json.loads(st.sidebar.text_input("$$x$$ : Paramètre de surpondération", value=str(default_config['x'])))
-y = json.loads(st.sidebar.text_input("$$y$$ : Paramètre de sous pondération", value=str(default_config['y'])))
-st.sidebar.subheader(f"Il y a actuellement {len(w_whale)} whale(s), qui représente {sum(w_whale)*100}% de l'indice")
+n_whale = st.sidebar.slider("Nombre de whales", min_value=1, max_value=10, step=1, value=len(default_config['w_whale']))
+total_exposure = json.loads(str(st.sidebar.slider("Exposition totale des Whales", min_value=0.00, max_value=1.00, step=0.01, value=float(sum(default_config['w_whale'])))))
+w_whale = list(np.full(n_whale, total_exposure/n_whale)) if n_whale > 0 else [float(0)]
+
+first_value_phwh = float(default_config['phwh'][0]) if isinstance(default_config['phwh'], list) and len(default_config['phwh']) > 0 else float(0)
+first_value_rhwh = float(default_config['rhwh'][0]) if isinstance(default_config['rhwh'], list) and len(default_config['rhwh']) > 0 else float(0)
+first_value_rbwh = float(default_config['rbwh'][0]) if isinstance(default_config['rbwh'], list) and len(default_config['rbwh']) > 0 else float(0)
+phwh = json.loads(str(st.sidebar.slider("$$P_{haussier}^{lambda}$$ : Probabilité de rendements haussiers (Whale)", min_value=0.00, max_value=1.00, step=0.01, value=first_value_phwh)))
+rhwh = json.loads(str(st.sidebar.slider("$$R_{haussier}^{whale}$$ : Rendements haussiers (whale)", min_value=-5.0, max_value=5.0, step=0.1, value=first_value_rhwh)))
+rbwh = json.loads(str(st.sidebar.slider("$$R_{baissier}^{whale}$$ : Rendements baissiers (whale)", min_value=-5.0, max_value=5.0, step=0.1, value=first_value_rbwh)))
+st.sidebar.subheader(f"Il y a actuellement {n_whale} whale(s), toutes d'un poids de {w_whale[0]*100:.2f}% dans l'indice")
 
 st.sidebar.header("Paramètres des Lambdas :")
 
 phld = st.sidebar.slider("$$P_{haussier}^{lambda}$$ : Probabilité de rendements haussiers (Lambda)", min_value=0.0, max_value=1.0, step=0.01, value=default_config["phld"])
-rhld = st.sidebar.number_input("$$R_{haussier}^{lambda}$$ : Rendements haussiers (lambda)", min_value=-10, max_value=10, value=default_config["rhld"])
-rbld = st.sidebar.number_input("$$R_{baissier}^{lambda}$$ : Rendements baissiers (lambda)", min_value=-10, max_value=10, value=default_config["rbld"])
+rhld = st.sidebar.slider("$$R_{haussier}^{lambda}$$ : Rendements haussiers (lambda)", min_value=-5.0, max_value=5.0, step=0.1, value=float(default_config["rhld"]))
+rbld = st.sidebar.slider("$$R_{baissier}^{lambda}$$ : Rendements baissiers (lambda)", min_value=-5.0, max_value=5.0, step=0.1, value=float(default_config["rbld"]))
 st.sidebar.text_area("**Attention**, les données pour $$E(XL)$$ sont pré-enregistrés pour certaine combinaisons. Si on sort de ces combinaisons, il y a un délai de calcul supplémentaire. Combinaisons pré-enregistrées :", value="N_Indice = 100, N_ptf = 30\n rhld, rbld = [1, -1], [3, -1], [1, -3], [3, -3]")
 
 config = {
@@ -119,8 +101,6 @@ config = {
     "phwh": phwh,
     "rhwh": rhwh,
     "rbwh": rbwh,
-    "x": x,
-    "y": y,
     "ppc": ppc,
     "phld": phld,
     "rhld": rhld,
@@ -135,25 +115,12 @@ json_config = json.dumps(config)
 #         CONFIGURATION SIDEBAR
 ###########################################
 
+st.markdown("Dans cette section, les poids ne peuvent pas être différents pour la cohérence de nos graphiques. On va donc se limiter à une seule valeur pour les poids, les probabilités de rendements, pour les rendements haussiers et baissiers des whales et des lambdas.")
+
 # Initialiser l'optimizer avec la configuration utilisateur
 WO = WhalesOptimizer(json_config)
 
-# Simulation du portefeuille
-st.header("Simulation des différentes distributions")
-precision = st.slider("Select Precision", min_value=1000, max_value=50000, step=1000, value=10000)
-df = WO.simulate_portfolio(precision)
-st.dataframe(df, use_container_width=True)
-
-
-# Comparaison des distributions
-st.header("Comparer les distributions souhaitées")
-distributions_to_compare = st.multiselect(
-    "Selectionne les distributions à comparer",
-    ['benchmark', 'B', 'L', 'La', 'portfolio', 'Y', 'X', 'W', 'XW', 'delta', 'WY', 'WB', 'YB', 'XL'],
-    default=['benchmark', 'portfolio', 'delta']
-)
-decimals = st.number_input("Nombre de décimales", min_value=0, max_value=5, value=3)
-compare_results = WO.compare(precision, distributions_to_compare, decimals, print_results=False)
-st.write(compare_results)
-
-hist_values = np.histogram(df['portfolio'], bins=24, range=(0,24))[0]
+# Créer deux colonnes st, et met un graph WO.generate_3d_graph(100, WO.portfolio()) dans colonne 1, et WO.generate_3d_graph(100, WO.delta()) dans colonne 2
+col1, col2 = st.columns(2)
+col1.plotly_chart(WO.generate_3d_graph_portfolio(100), use_container_width=True)
+col2.plotly_chart(WO.generate_3d_graph_delta(100), use_container_width=True)
