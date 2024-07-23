@@ -43,9 +43,9 @@ indice2_config = {
 indice3_config = {
     "w_whale": [0.5],
     "ppc": 0.6,
-    "phwh": 0.5,
-    "rhwh": 1,
-    "rbwh": -1,
+    "phwh": [0.5],
+    "rhwh": [1],
+    "rbwh": [-1],
     "phld": 0.5,
     "rhld": 1,
     "rbld": -1,
@@ -121,6 +121,21 @@ st.markdown("Dans cette section, les poids ne peuvent pas être différents pour
 WO = WhalesOptimizer(json_config)
 
 # Créer deux colonnes st, et met un graph WO.generate_3d_graph(100, WO.portfolio()) dans colonne 1, et WO.generate_3d_graph(100, WO.delta()) dans colonne 2
+sharpness = st.slider("Sharpness", min_value=10, max_value=100, step=1, value=50)
 col1, col2 = st.columns(2)
-col1.plotly_chart(WO.generate_3d_graph_portfolio(100), use_container_width=True)
-col2.plotly_chart(WO.generate_3d_graph_delta(100), use_container_width=True)
+col1.plotly_chart(WO.generate_3d_graph(sharpness, 'portfolio'), use_container_width=True)
+col2.plotly_chart(WO.generate_3d_graph(sharpness, 'delta'), use_container_width=True)
+
+optimizing_type = st.selectbox(
+    "Paramètres pour",
+    ['portfolio', 'delta']
+)
+fig1, fig2, fig3, fig4 = WO.plot_surface(sharpness, optimizing_type)
+
+col1, col2 = st.columns(2)
+col1.plotly_chart(fig1, use_container_width=True)
+col2.plotly_chart(fig2, use_container_width=True)
+
+col1, col2 = st.columns(2)
+col1.plotly_chart(fig3, use_container_width=True)
+col2.plotly_chart(fig4, use_container_width=True)

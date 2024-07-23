@@ -24,7 +24,7 @@ class WhalesOptimizer:
     ##########################################################
 
     def __init__(self, json_config):
-        data = np.load('data/simulated_XL_values1.npz')
+        data = np.load('/Users/julesmourgues/Documents/Programmation/Actuel/Allocation/WhalesOptimizer-main/data/simulated_XL_values1.npz')
         self.interpolator_sym_1 = RegularGridInterpolator((np.linspace(0, 1, 100), np.linspace(0, 1, 100)), data['sym_1'])
         self.interpolator_sym_3 = RegularGridInterpolator((np.linspace(0, 1, 100), np.linspace(0, 1, 100)), data['sym_3'])
         self.interpolator_asym_1 = RegularGridInterpolator((np.linspace(0, 1, 100), np.linspace(0, 1, 100)), data['asym_1'])
@@ -32,6 +32,7 @@ class WhalesOptimizer:
 
         # Set to false "optimzing"
         self.optimizing = False
+        self.generating = False
 
         # Charger le JSON et initialiser les paramètres
         config = json.loads(json_config)
@@ -436,8 +437,10 @@ class WhalesOptimizer:
         y_original = self.y
 
         # Calcule de l'espérance de XL une unique fois
+        
+        if not self.optimizing:
+            self.E_XL = self.esperance_XL()
         self.optimizing = True
-        self.E_XL = self.esperance_XL()
 
         def neg_sharpe_ratio(params):
             self.x = params[:self.n_whale]
@@ -470,7 +473,9 @@ class WhalesOptimizer:
         # Remettre les valeurs originales de x et y
         self.x = x_original
         self.y = y_original
-        self.optimizing = False
+
+        if not self.generating:
+            self.optimizing = False
         
         return self.optimal_x, self.optimal_y, self.optimal_sharpe_ratio
 
@@ -788,8 +793,11 @@ class WhalesOptimizer:
         df = pd.DataFrame(data, index=[f'Whale {i+1}' for i in range(self.n_whale)]).T
         return df
 
-    def generate_3d_graph_portfolio(self, sharpness):
+    def generate_3d_graph(self, sharpness, Func):
         # Vérifier que w_whale a les mêmes valeurs dans sa liste
+
+        func = getattr(self, Func)
+
         if any(len(set(attr)) != 1 for attr in [self.w_whale, self.phwh, self.rhwh, self.rbwh]):
             return "Les valeurs de w_whale doivent être identiques"
 
@@ -803,28 +811,33 @@ class WhalesOptimizer:
         # Créer une grille de valeurs x et y
         x_values, y_values = np.meshgrid(x_range, y_range)
         
-        Esperance = np.zeros((sharpness, sharpness))
-        Variance = np.zeros((sharpness, sharpness))
+        Esperances = np.zeros((sharpness, sharpness))
+        Variances = np.zeros((sharpness, sharpness))
 
         for i in range(sharpness):
             for j in range(sharpness):
                 self.x = self.w_whale * x_values[i, j]
                 self.y = self.w_whale * y_values[i, j]
 
-                Esperance[i, j], Variance[i, j] = self.portfolio()
+                Esperances[i, j], Variances[i, j] = func()
 
         self.x = original_x
         self.y = original_y
 
         # Calculer le ratio de Sharpe pour chaque paire (x, y)
-        sharpe_values = Esperance / np.sqrt(Variance)
+        Ratio_values = Esperances / np.sqrt(Variances)
 
         # Créer un graphique 3D avec Plotly
-        fig = go.Figure(data=[go.Surface(z=sharpe_values, x=x_values, y=y_values, colorscale='Viridis')])
+        fig = go.Figure(data=[go.Surface(z=Ratio_values, x=x_values, y=y_values, colorscale='Viridis')])
 
         # Ajouter des titres aux axes
+        if Func == 'delta':
+            ratio_name = 'Information'
+        elif Func == 'portfolio':
+            ratio_name = 'Sharpe'
+        
         fig.update_layout(
-            title=f"Sharpe Ratio 3D Surface",
+            title=f"{ratio_name} Ratio 3D Surface",
             scene = dict(
                 xaxis_title='X',
                 yaxis_title='Y',
@@ -833,77 +846,101 @@ class WhalesOptimizer:
         )
 
         # Trouver l'index du ratio de Sharpe maximum
-        max_index = np.argmax(sharpe_values)
+        max_index = np.argmax(Ratio_values)
 
         # Convertir l'index en indices 2D
-        max_indices = np.unravel_index(max_index, sharpe_values.shape)
+        max_indices = np.unravel_index(max_index, Ratio_values.shape)
 
         # Trouver les valeurs x et y correspondantes
         best_x = x_values[max_indices]
         best_y = y_values[max_indices]
-        max_z = np.max(sharpe_values)
+        max_z = np.max(Ratio_values)
 
         # Ajouter un point pour le maximum Sharpe Ratio
         fig.add_trace(go.Scatter3d(x=[best_x], y=[best_y], z=[max_z], mode='markers', marker=dict(size=5, color='red')))
 
         return fig
     
-    def generate_3d_graph_delta(self, sharpness):
-        # Vérifier que w_whale a les mêmes valeurs dans sa liste
+    def generate_surfaces(self, sharpness, Func):
+
+        func = getattr(self, Func)
+
         if any(len(set(attr)) != 1 for attr in [self.w_whale, self.phwh, self.rhwh, self.rbwh]):
             return "Les valeurs de w_whale doivent être identiques"
 
         original_x = self.x
         original_y = self.y
 
-        # Créer des listes pour x et y
-        x_range = np.linspace(-1, 1, sharpness)
-        y_range = np.linspace(-1, 1, sharpness)
+        self.generating = True
         
-        # Créer une grille de valeurs x et y
-        x_values, y_values = np.meshgrid(x_range, y_range)
+        # Définissez les plages pour les deux paramètres
+        phwh_values = np.linspace(0.1, 0.9, sharpness)
+        phld_values = np.linspace(0.1, 0.9, sharpness)
         
-        Esperance = np.zeros((sharpness, sharpness))
-        Variance = np.zeros((sharpness, sharpness))
 
-        for i in range(sharpness):
-            for j in range(sharpness):
-                self.x = self.w_whale * x_values[i, j]
-                self.y = self.w_whale * y_values[i, j]
+        # Créez des grilles pour les simulations
+        x_values = np.zeros((sharpness, sharpness))
+        y_values = np.zeros((sharpness, sharpness))
+        Ratio_values = np.zeros((sharpness, sharpness))
+        Esperances = np.zeros((sharpness, sharpness))
+        Volatility = np.zeros((sharpness, sharpness))
 
-                Esperance[i, j], Variance[i, j] = self.delta()
+        for i, phld_i in enumerate(phld_values):
+            for j, phwh_i in enumerate(phwh_values):
+
+                self.phwh = np.full(self.n_whale, phwh_i)
+                self.phld = phld_i
+
+                self.x, self.y, Ratio_values[i, j] = self.optimize_parameters(func, print_results=False)
+
+                x_values[i, j] = self.x[0]
+                y_values[i, j] = self.y[0]
+
+                Esperances[i, j], var = func()
+                Volatility[i, j] = np.sqrt(var)
 
         self.x = original_x
         self.y = original_y
 
-        # Calculer le ratio de Sharpe pour chaque paire (x, y)
-        sharpe_values = Esperance / np.sqrt(Variance)
+        self.generating = False
 
-        # Créer un graphique 3D avec Plotly
-        fig = go.Figure(data=[go.Surface(z=sharpe_values, x=x_values, y=y_values, colorscale='Viridis')])
+        return Ratio_values, Esperances, Volatility, x_values, y_values
+    
+    def plot_surface(self, sharpness, func_name):
+        X, Y = np.meshgrid(np.linspace(0.1, 0.9, sharpness), np.linspace(0.1, 0.9, sharpness))
+        z1, z2, z3, z4, z5 = self.generate_surfaces(sharpness, func_name)
 
-        # Ajouter des titres aux axes
-        fig.update_layout(
-            title=f"Sharpe Ratio 3D Surface",
-            scene = dict(
-                xaxis_title='X',
-                yaxis_title='Y',
-                zaxis_title='Sharpe Ratio',
-            )
-        )
+        X_titre = 'Prob. Hausse - Whale'
+        Y_titre = 'Prob. Hausse - Lambda'
 
-        # Trouver l'index du ratio de Sharpe maximum
-        max_index = np.argmax(sharpe_values)
+        fig1 = go.Figure(data=[go.Surface(z=z1, x=X, y=Y)])
+        fig1.update_layout(title='Ratio', scene=dict(
+            xaxis_title=X_titre,
+            yaxis_title=Y_titre,
+            zaxis_title='Ratio'
+        ))
 
-        # Convertir l'index en indices 2D
-        max_indices = np.unravel_index(max_index, sharpe_values.shape)
+        fig2 = go.Figure(data=[go.Surface(z=z2, x=X, y=Y)])
+        fig2.update_layout(title='Espérance de rendement', scene=dict(
+            xaxis_title=X_titre,
+            yaxis_title=Y_titre,
+            zaxis_title='Espérance'
+        ))
 
-        # Trouver les valeurs x et y correspondantes
-        best_x = x_values[max_indices]
-        best_y = y_values[max_indices]
-        max_z = np.max(sharpe_values)
+        fig3 = go.Figure(data=[go.Surface(z=z3, x=X, y=Y)])
+        fig3.update_layout(title='Volatilité', scene=dict(
+            xaxis_title=X_titre,
+            yaxis_title=Y_titre,
+            zaxis_title='Volatilité'
+        ))
 
-        # Ajouter un point pour le maximum Sharpe Ratio
-        fig.add_trace(go.Scatter3d(x=[best_x], y=[best_y], z=[max_z], mode='markers', marker=dict(size=5, color='red')))
+        fig4 = go.Figure()
+        fig4.add_trace(go.Surface(z=z4, x=X, y=Y, showscale=False, opacity=0.8, name="x optimisé"))
+        fig4.add_trace(go.Surface(z=z5, x=X, y=Y, showscale=False, colorscale='Viridis', opacity=0.8, name="y optimisé"))
+        fig4.update_layout(title='X et Y Optimisé en fonction du Ratio', scene=dict(
+            xaxis_title=X_titre,
+            yaxis_title=Y_titre,
+            zaxis_title='X & Y optimisés'
+        ))
 
-        return fig
+        return fig1, fig2, fig3, fig4
