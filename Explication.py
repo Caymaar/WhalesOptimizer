@@ -12,8 +12,8 @@ text_selected = st.selectbox(
 )
 
 if text_selected == 'Developpée':
-    markdown_content = read_markdown_file("/Users/julesmourgues/Documents/Programmation/Actuel/Allocation/WhalesOptimizer-main/developped.md")
+    markdown_content = read_markdown_file("developped.md")
     st.markdown(markdown_content)  
 else:
-    markdown_content = read_markdown_file("/Users/julesmourgues/Documents/Programmation/Actuel/Allocation/WhalesOptimizer-main/summary.md")
+    markdown_content = read_markdown_file("summary.md")
     st.markdown(markdown_content)
