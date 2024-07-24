@@ -222,14 +222,15 @@ class WhalesOptimizer:
         
     def esperance_XL(self):
         point = np.array([self.ppc, self.phld])
-        if self.rhld == 1 and self.rbld == -1:
-            smoothed_value = self.interpolator_sym_1(point)
-        elif self.rhld == 3 and self.rbld == -3:
-            smoothed_value = self.interpolator_sym_3(point)
-        elif self.rhld == 3 and self.rbld == -1:
-            smoothed_value = self.interpolator_asym_3(point)
-        elif self.rhld == 1 and self.rbld == -3:
-            smoothed_value = self.interpolator_asym_1(point)
+        if self.N_indice == 100 and self.N_ptf == 100:
+            if self.rhld == 1 and self.rbld == -1:
+                smoothed_value = self.interpolator_sym_1(point)
+            elif self.rhld == 3 and self.rbld == -3:
+                smoothed_value = self.interpolator_sym_3(point)
+            elif self.rhld == 3 and self.rbld == -1:
+                smoothed_value = self.interpolator_asym_3(point)
+            elif self.rhld == 1 and self.rbld == -3:
+                smoothed_value = self.interpolator_asym_1(point)
         else:
             print('Invalid values for rhld and rbld, we will be using simulate_XL function')
             return self.get_XL_values(10000, 11)
