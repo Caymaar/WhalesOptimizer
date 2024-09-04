@@ -1,1 +1,1 @@
-[https://whalesoptimizer.streamlit.app/](https://whales-optimizer.streamlit.app/)
+[Whales Optimizer](https://whales-optimizer.streamlit.app/)
